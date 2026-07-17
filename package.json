@@ -1,0 +1,16 @@
+{
+  "name": "poppy-sprocket",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "verify:0": "node --experimental-strip-types scripts/verify-sprint0.mjs"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "vite": "8.1.5"
+  }
+}
