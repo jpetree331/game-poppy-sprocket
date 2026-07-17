@@ -16,6 +16,9 @@ export interface HeldActions {
 export interface InputSnapshot {
   left: boolean;
   right: boolean;
+  /** Direction went down since the last sample (menus want edges). */
+  leftPressed: boolean;
+  rightPressed: boolean;
   /** Jump currently held. */
   jump: boolean;
   /** Jump went down since the last sample. */
@@ -36,6 +39,8 @@ export interface Input {
 export const IDLE_SNAPSHOT: InputSnapshot = {
   left: false,
   right: false,
+  leftPressed: false,
+  rightPressed: false,
   jump: false,
   jumpPressed: false,
   jumpReleased: false,
@@ -44,6 +49,8 @@ export const IDLE_SNAPSHOT: InputSnapshot = {
 
 export function createInput(): Input {
   const held: HeldActions = { left: false, right: false, jump: false, boing: false };
+  let prevLeft = false;
+  let prevRight = false;
   let prevJump = false;
   let prevBoing = false;
   return {
@@ -52,11 +59,15 @@ export function createInput(): Input {
       const snap: InputSnapshot = {
         left: held.left,
         right: held.right,
+        leftPressed: held.left && !prevLeft,
+        rightPressed: held.right && !prevRight,
         jump: held.jump,
         jumpPressed: held.jump && !prevJump,
         jumpReleased: !held.jump && prevJump,
         boingPressed: held.boing && !prevBoing,
       };
+      prevLeft = held.left;
+      prevRight = held.right;
       prevJump = held.jump;
       prevBoing = held.boing;
       return snap;

@@ -58,6 +58,8 @@ export interface Game {
   enemies: Enemy[];
   bubbles: Bubble[];
   items: Item[];
+  /** Exit-door rects (from `E` spawns). */
+  exits: Array<{ x: number; y: number; w: number; h: number }>;
   hasKeycard: boolean;
   run: RunState;
   phase: GamePhase;
@@ -72,6 +74,8 @@ export interface GameEvents extends PlayerEvents {
   gotKeycard: boolean;
   partsCollected: PartId[];
   doorOpened: boolean;
+  /** Poppy walked into an exit door this tick. */
+  exitReached: boolean;
 }
 
 const NO_EVENTS: Omit<GameEvents, keyof PlayerEvents> = {
@@ -83,6 +87,7 @@ const NO_EVENTS: Omit<GameEvents, keyof PlayerEvents> = {
   gotKeycard: false,
   partsCollected: [],
   doorOpened: false,
+  exitReached: false,
 };
 
 export function createGame(levelText: string, run: RunState = newRun()): Game {
@@ -94,6 +99,9 @@ export function createGame(levelText: string, run: RunState = newRun()): Game {
     enemies: spawnEnemies(level),
     bubbles: [],
     items: spawnItems(level),
+    exits: level.spawns
+      .filter((s) => s.kind === "exit")
+      .map((s) => ({ x: s.col * TILE_SIZE + 2, y: s.row * TILE_SIZE, w: TILE_SIZE - 4, h: TILE_SIZE })),
     hasKeycard: false,
     run,
     phase: "playing",
@@ -199,6 +207,16 @@ export function updateGame(game: Game, input: InputSnapshot, dt: number): GameEv
           events.doorOpened = true;
           break outer;
         }
+      }
+    }
+  }
+
+  // Exit door.
+  if (!p.dead) {
+    for (const ex of game.exits) {
+      if (aabbOverlap(p, ex)) {
+        events.exitReached = true;
+        break;
       }
     }
   }

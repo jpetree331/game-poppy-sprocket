@@ -502,6 +502,56 @@ export const DIGITS = [
   ["fff", "f.f", "fff", "..f", "fff"], // 9
 ].map(decodeSprite);
 
+// Green check for completed level slots (8×8).
+export const CHECK = decodeSprite([
+  "........",
+  ".......a",
+  "......aa",
+  "a....aa.",
+  "aa..aa..",
+  ".aaaa...",
+  "..aa....",
+  "........",
+]);
+
+// Poppy's rocket, reassembled (16×32) — wheelbarrow chic. All four parts
+// visible: Big Red Button nose, Fizz Tank band, Left (and right) Fins,
+// Sputter Coil at the engine. Flame is drawn dynamically by the cutscene.
+export const ROCKET = decodeSprite([
+  "......44........",
+  ".....4444.......",
+  "....777777......",
+  "...77777777.....",
+  "...77777777.....",
+  "...77bbbb77.....",
+  "...77b11b77.....",
+  "...77b11b77.....",
+  "...77bbbb77.....",
+  "...77777777.....",
+  "...77777777.....",
+  "...73333337.....",
+  "...73333337.....",
+  "...77777777.....",
+  "...77777777.....",
+  "..c77777777c....",
+  ".cc77777777cc...",
+  "ccc77777777ccc..",
+  "ccc77777777ccc..",
+  "ccc77777777ccc..",
+  "...66666666.....",
+  "...6e6e6e6e.....",
+  "...66666666.....",
+  "....888888......",
+  "....8....8......",
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+]);
+
 // Mini Poppy head for the lives readout (8×8).
 export const MINI_POPPY = decodeSprite([
   ".eeeee..",
