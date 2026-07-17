@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "verify:0": "node --experimental-strip-types scripts/verify-sprint0.mjs",
     "verify:1": "node --experimental-strip-types scripts/verify-sprint1.mjs",
-    "verify:2": "node --experimental-strip-types scripts/verify-sprint2.mjs"
+    "verify:2": "node --experimental-strip-types scripts/verify-sprint2.mjs",
+    "verify:3": "node --experimental-strip-types scripts/verify-sprint3.mjs"
   },
   "devDependencies": {
     "typescript": "5.9.3",

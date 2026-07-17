@@ -6,8 +6,9 @@ import { TILE_SIZE } from "./lib/level.ts";
 import { createInput } from "./lib/input.ts";
 import { createGame, updateGame } from "./lib/game.ts";
 import { attachKeyboard } from "./input-keyboard.ts";
-import { drawPlayer, drawTiles, exitSprite } from "./render.ts";
+import { drawBubbles, drawEnemies, drawPlayer, drawTiles, exitSprite } from "./render.ts";
 import level01Text from "../levels/01-crash-site.txt?raw";
+import level02Text from "../levels/02-suds-canyon.txt?raw";
 
 export const LOGICAL_WIDTH = 320;
 export const LOGICAL_HEIGHT = 200;
@@ -36,7 +37,11 @@ window.addEventListener("resize", fitCanvas);
 fitCanvas();
 
 // --- sim wiring ---
-const game = createGame(level01Text);
+// Dev-only level jump: ?level=2 boots straight into a later map. The real
+// level chain arrives in Sprint 5.
+const LEVELS: Record<string, string> = { "1": level01Text, "2": level02Text };
+const requested = new URLSearchParams(location.search).get("level") ?? "1";
+const game = createGame(LEVELS[requested] ?? level01Text);
 const input = createInput();
 let debugOverlay = false;
 attachKeyboard(input, () => {
@@ -80,9 +85,29 @@ function render(_alpha: number): void {
     }
   }
 
+  drawEnemies(ctx, game.enemies, camX, camY);
+  drawBubbles(ctx, game.bubbles, camX, camY);
   drawPlayer(ctx, game.player, camX, camY);
 
+  if (game.phase === "gameover") drawGameOver();
   if (debugOverlay) drawDebug(camX, camY);
+}
+
+// Placeholder game-over card (canvas text). Sprint 6 replaces this with the
+// title screen and pixel-array lettering.
+function drawGameOver(): void {
+  ctx.fillStyle = PALETTE[0];
+  ctx.fillRect(40, 70, 240, 60);
+  ctx.strokeStyle = PALETTE[4];
+  ctx.strokeRect(40.5, 70.5, 239, 59);
+  ctx.fillStyle = PALETTE[15];
+  ctx.font = "16px monospace";
+  ctx.textAlign = "center";
+  ctx.fillText("GAME OVER", 160, 95);
+  ctx.font = "8px monospace";
+  ctx.fillStyle = PALETTE[14];
+  ctx.fillText("PRESS JUMP TO TRY AGAIN", 160, 115);
+  ctx.textAlign = "left";
 }
 
 function drawDebug(camX: number, camY: number): void {

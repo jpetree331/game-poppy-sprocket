@@ -3,6 +3,13 @@
 import { PALETTE } from "./lib/palette.ts";
 import { TILE, TILE_SIZE, type LevelData, type TileId } from "./lib/level.ts";
 import {
+  BUBBLE,
+  GLOBBIN,
+  GLOBBIN_SQUISHED,
+  JANITOR_BOT,
+  JANITOR_BOT_SQUISHED,
+  PRICKLE_PIG,
+  PRICKLE_PIG_WALK2,
   POPPY_BOING,
   POPPY_IDLE,
   POPPY_JUMP,
@@ -15,6 +22,7 @@ import {
   type SpriteGrid,
 } from "./lib/art.ts";
 import type { Player } from "./lib/player.ts";
+import type { Bubble, Enemy } from "./lib/enemies.ts";
 
 /** Bake a palette-index grid into an offscreen canvas, once, at boot. */
 export function bakeSprite(grid: SpriteGrid, flip = false): HTMLCanvasElement {
@@ -55,6 +63,56 @@ const poppyFrames = {
   jump: bakeFacing(POPPY_JUMP),
   boing: bakeFacing(POPPY_BOING),
 };
+
+const enemySprites = {
+  globbin: { alive: bakeFacing(GLOBBIN), squished: bakeSprite(GLOBBIN_SQUISHED) },
+  pricklePig: {
+    walk1: bakeFacing(PRICKLE_PIG),
+    walk2: bakeFacing(PRICKLE_PIG_WALK2),
+  },
+  janitorBot: { alive: bakeFacing(JANITOR_BOT), squished: bakeSprite(JANITOR_BOT_SQUISHED) },
+};
+const bubbleSprite = bakeSprite(BUBBLE);
+
+export function drawEnemies(
+  ctx: CanvasRenderingContext2D,
+  enemies: readonly Enemy[],
+  camX: number,
+  camY: number,
+): void {
+  for (const e of enemies) {
+    // Sprites are 16×16 with feet on the bottom row; bodies are smaller.
+    const dx = Math.round(e.x - camX) - Math.floor((16 - e.w) / 2);
+    const dy = Math.round(e.y - camY) + e.h - 16;
+    let sprite: HTMLCanvasElement;
+    if (e.kind === "pricklePig") {
+      const frame =
+        Math.floor(e.animTime / 0.18) % 2 === 0
+          ? enemySprites.pricklePig.walk1
+          : enemySprites.pricklePig.walk2;
+      sprite = e.facing === 1 ? frame.right : frame.left;
+    } else {
+      const set = enemySprites[e.kind];
+      sprite = e.alive
+        ? e.facing === 1
+          ? set.alive.right
+          : set.alive.left
+        : set.squished;
+    }
+    ctx.drawImage(sprite, dx, dy);
+  }
+}
+
+export function drawBubbles(
+  ctx: CanvasRenderingContext2D,
+  bubbles: readonly Bubble[],
+  camX: number,
+  camY: number,
+): void {
+  for (const b of bubbles) {
+    ctx.drawImage(bubbleSprite, Math.round(b.x - camX), Math.round(b.y - camY));
+  }
+}
 
 /** Pick and draw Poppy's frame from sim state. Reads only, never mutates. */
 export function drawPlayer(
