@@ -502,6 +502,44 @@ export const DIGITS = [
   ["fff", "f.f", "fff", "..f", "fff"], // 9
 ].map(decodeSprite);
 
+// 3×5 uppercase letters + a little punctuation, same format as DIGITS.
+// This is the game's entire typeface — no browser fonts anywhere in play.
+export const FONT: Record<string, SpriteGrid> = Object.fromEntries(
+  Object.entries({
+    A: ["fff", "f.f", "fff", "f.f", "f.f"],
+    B: ["ff.", "f.f", "ff.", "f.f", "ff."],
+    C: ["fff", "f..", "f..", "f..", "fff"],
+    D: ["ff.", "f.f", "f.f", "f.f", "ff."],
+    E: ["fff", "f..", "ff.", "f..", "fff"],
+    F: ["fff", "f..", "ff.", "f..", "f.."],
+    G: ["fff", "f..", "f.f", "f.f", "fff"],
+    H: ["f.f", "f.f", "fff", "f.f", "f.f"],
+    I: ["fff", ".f.", ".f.", ".f.", "fff"],
+    J: ["..f", "..f", "..f", "f.f", "fff"],
+    K: ["f.f", "ff.", "f..", "ff.", "f.f"],
+    L: ["f..", "f..", "f..", "f..", "fff"],
+    M: ["f.f", "fff", "f.f", "f.f", "f.f"],
+    N: ["ff.", "f.f", "f.f", "f.f", "f.f"],
+    O: ["fff", "f.f", "f.f", "f.f", "fff"],
+    P: ["fff", "f.f", "fff", "f..", "f.."],
+    Q: ["fff", "f.f", "f.f", "fff", "..f"],
+    R: ["ff.", "f.f", "ff.", "f.f", "f.f"],
+    S: ["fff", "f..", "fff", "..f", "fff"],
+    T: ["fff", ".f.", ".f.", ".f.", ".f."],
+    U: ["f.f", "f.f", "f.f", "f.f", "fff"],
+    V: ["f.f", "f.f", "f.f", "f.f", ".f."],
+    W: ["f.f", "f.f", "f.f", "fff", "f.f"],
+    X: ["f.f", "f.f", ".f.", "f.f", "f.f"],
+    Y: ["f.f", "f.f", ".f.", ".f.", ".f."],
+    Z: ["fff", "..f", ".f.", "f..", "fff"],
+    "-": ["...", "...", "fff", "...", "..."],
+    ".": ["...", "...", "...", "...", ".f."],
+    "!": [".f.", ".f.", ".f.", "...", ".f."],
+    "'": [".f.", ".f.", "...", "...", "..."],
+    "/": ["..f", "..f", ".f.", "f..", "f.."],
+  }).map(([ch, rows]) => [ch, decodeSprite(rows)]),
+);
+
 // Green check for completed level slots (8×8).
 export const CHECK = decodeSprite([
   "........",

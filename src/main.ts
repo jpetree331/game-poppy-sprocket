@@ -1,17 +1,26 @@
 // src/main.ts — browser entry point. DOM/Canvas code lives here, never in lib/.
 import "./tokens.css";
 import { createLoop } from "./lib/loop.ts";
-import { PALETTE } from "./lib/palette.ts";
+import { PALETTE, type PaletteIndex } from "./lib/palette.ts";
 import { TILE_SIZE } from "./lib/level.ts";
 import { createInput } from "./lib/input.ts";
-import { createGame, updateGame, type Game } from "./lib/game.ts";
+import { createGame, updateGame, type Game, type GameEvents } from "./lib/game.ts";
 import {
   createCampaign,
   updateCampaign,
   WIN_CUTSCENE_LOCK,
   type LevelEntry,
 } from "./lib/campaign.ts";
+import {
+  spawnDeathPoof,
+  spawnDust,
+  spawnSparkleBurst,
+  spawnStars,
+  updateParticles,
+  type Particle,
+} from "./lib/particles.ts";
 import { attachKeyboard } from "./input-keyboard.ts";
+import { armAudioUnlock, isMuted, sfx, toggleMute } from "./audio.ts";
 import { CHECK, ROCKET } from "./lib/art.ts";
 import {
   bakeSprite,
@@ -20,7 +29,9 @@ import {
   drawHud,
   drawItems,
   drawNumber,
+  drawParticles,
   drawPlayer,
+  drawText,
   drawTiles,
   exitSprite,
 } from "./render.ts";
@@ -71,6 +82,9 @@ let debugOverlay = false;
 attachKeyboard(input, () => {
   debugOverlay = !debugOverlay;
 });
+window.addEventListener("keydown", (e) => {
+  if (e.code === "KeyM") toggleMute();
+});
 
 // Dev shortcuts: ?level=N boots a single level with no chain;
 // ?win=1 jumps straight to the launch cutscene.
@@ -85,10 +99,69 @@ if (params.get("win") === "1") {
   campaign.screen = "win";
 }
 
+armAudioUnlock(() => {
+  if (!soloGame && campaign.screen === "title") sfx.jingle();
+});
+
+// --- presentation state (fixed-timestep driven, browser-side) ---
+const particles: Particle[] = [];
+let uiTime = 0;
+let wipeT = 0; // 1 → 0 curtain reveal after screen changes
+
+const PART_CHIP_COLORS: readonly PaletteIndex[] = [6, 3, 4, 12];
+
+function handleGameEvents(ev: GameEvents, game: Game): void {
+  const p = game.player;
+  const feetX = p.x + p.w / 2;
+  const feetY = p.y + p.h;
+  if (ev.jumped) sfx.jump();
+  if (ev.boinged === "small") {
+    sfx.boingSmall();
+    spawnDust(particles, feetX, feetY);
+  } else if (ev.boinged === "big") {
+    sfx.boingBig();
+    spawnDust(particles, feetX, feetY);
+  }
+  if (ev.landed) spawnDust(particles, feetX, feetY);
+  if (ev.squished) {
+    sfx.squish();
+    spawnStars(particles, feetX, feetY);
+  }
+  if (ev.capsCollected > 0) sfx.pickup();
+  if (ev.gotKeycard) sfx.keycard();
+  for (const part of ev.partsCollected) {
+    sfx.part();
+    spawnSparkleBurst(particles, p.x + p.w / 2, p.y + p.h / 2, PART_CHIP_COLORS[part - 1]);
+  }
+  if (ev.doorOpened) sfx.door();
+  if (ev.died) {
+    sfx.death();
+    spawnDeathPoof(particles, feetX, p.y + 4);
+  }
+  if (ev.gameOver) sfx.gameOver();
+}
+
 function update(dt: number): void {
+  uiTime += dt;
   const snap = input.sample();
-  if (soloGame) updateGame(soloGame, snap, dt);
-  else updateCampaign(campaign, snap, dt);
+  if (soloGame) {
+    const ev = updateGame(soloGame, snap, dt);
+    handleGameEvents(ev, soloGame);
+  } else {
+    const before = campaign.screen;
+    const ev = updateCampaign(campaign, snap, dt);
+    if (ev.game && campaign.game) handleGameEvents(ev.game, campaign.game);
+    if (ev.levelStarted) wipeT = 1;
+    if (ev.levelCompleted) {
+      sfx.levelDone();
+      wipeT = 1;
+    }
+    if (ev.won) sfx.launch();
+    if (ev.runReset) sfx.jingle();
+    if (before !== campaign.screen && campaign.screen === "select") wipeT = Math.max(wipeT, 0.6);
+  }
+  updateParticles(particles, dt);
+  wipeT = Math.max(0, wipeT - dt * 2.2);
 }
 
 // --- camera ---
@@ -107,7 +180,6 @@ function cameraY(game: Game): number {
 
 const checkSprite = bakeSprite(CHECK);
 const rocketSprite = bakeSprite(ROCKET);
-const PART_CHIP_COLORS = [6, 3, 4, 12] as const;
 
 function render(_alpha: number): void {
   ctx.fillStyle = PALETTE[0];
@@ -116,22 +188,27 @@ function render(_alpha: number): void {
   if (soloGame) {
     drawGameWorld(soloGame);
     if (soloGame.phase === "gameover") drawGameOverCard();
-    return;
+  } else {
+    switch (campaign.screen) {
+      case "title":
+        drawTitleScreen();
+        break;
+      case "select":
+        drawSelectScreen();
+        break;
+      case "game":
+      case "gameover":
+        if (campaign.game) drawGameWorld(campaign.game);
+        if (campaign.screen === "gameover") drawGameOverCard();
+        break;
+      case "win":
+        drawWinCutscene(campaign.winTime);
+        break;
+    }
   }
 
-  switch (campaign.screen) {
-    case "select":
-      drawSelectScreen();
-      break;
-    case "game":
-    case "gameover":
-      if (campaign.game) drawGameWorld(campaign.game);
-      if (campaign.screen === "gameover") drawGameOverCard();
-      break;
-    case "win":
-      drawWinCutscene(campaign.winTime);
-      break;
-  }
+  drawWipe();
+  if (isMuted()) drawText(ctx, "MUTE", 301, 3, { color: 12 });
 }
 
 function drawGameWorld(game: Game): void {
@@ -151,97 +228,88 @@ function drawGameWorld(game: Game): void {
   drawEnemies(ctx, game.enemies, camX, camY);
   drawBubbles(ctx, game.bubbles, camX, camY);
   drawPlayer(ctx, game.player, camX, camY);
+  drawParticles(ctx, particles, camX, camY);
   drawHud(ctx, game, LOGICAL_WIDTH, LOGICAL_HEIGHT);
   if (debugOverlay) drawDebug(game, camX, camY);
 }
 
-// --- level select (GATE B default; canvas-font labels are placeholders
-// until Sprint 6's pixel lettering) ---
+// --- title screen: pixel-array lettering, palette-cycling border ---
+function drawTitleScreen(): void {
+  const border = (1 + (Math.floor(uiTime * 9) % 15)) as PaletteIndex;
+  ctx.fillStyle = PALETTE[border];
+  ctx.fillRect(0, 0, LOGICAL_WIDTH, 3);
+  ctx.fillRect(0, LOGICAL_HEIGHT - 3, LOGICAL_WIDTH, 3);
+  ctx.fillRect(0, 0, 3, LOGICAL_HEIGHT);
+  ctx.fillRect(LOGICAL_WIDTH - 3, 0, 3, LOGICAL_HEIGHT);
+
+  drawText(ctx, "POPPY", 160, 34, { color: 14, scale: 4, align: "center" });
+  drawText(ctx, "SPROCKET", 160, 60, { color: 14, scale: 4, align: "center" });
+  drawText(ctx, "IN", 160, 88, { color: 7, align: "center" });
+  drawText(ctx, "MAROONED ON MURKK-7", 160, 100, { color: 11, scale: 2, align: "center" });
+
+  if (Math.floor(uiTime * 2) % 3 !== 2) {
+    drawText(ctx, "PRESS JUMP TO START", 160, 140, { color: 15, align: "center" });
+  }
+  drawText(ctx, "ARROWS MOVE / CTRL JUMPS / ALT BOINGS", 160, 164, { color: 8, align: "center" });
+  drawText(ctx, "M MUTES THE BLEEPS", 160, 174, { color: 8, align: "center" });
+}
+
+// --- level select (GATE B default) ---
 function drawSelectScreen(): void {
-  ctx.textAlign = "center";
-  ctx.fillStyle = PALETTE[14];
-  ctx.font = "16px monospace";
-  ctx.fillText("POPPY SPROCKET", 160, 36);
-  ctx.fillStyle = PALETTE[11];
-  ctx.font = "8px monospace";
-  ctx.fillText("MAROONED ON MURKK-7", 160, 50);
+  drawText(ctx, "POPPY SPROCKET", 160, 24, { color: 14, scale: 2, align: "center" });
+  drawText(ctx, "MAROONED ON MURKK-7", 160, 42, { color: 11, align: "center" });
 
   const slotW = 40;
   const gap = 12;
   const x0 = (LOGICAL_WIDTH - (5 * slotW + 4 * gap)) / 2;
   for (let i = 0; i < 5; i++) {
     const x = x0 + i * (slotW + gap);
-    const y = 84;
+    const y = 78;
     const selected = campaign.cursor === i;
-    ctx.strokeStyle = selected ? PALETTE[14] : PALETTE[8];
+    ctx.strokeStyle = PALETTE[selected ? 14 : 8];
     ctx.strokeRect(x + 0.5, y + 0.5, slotW - 1, 39);
-    // Level number, 2× pixel digits.
-    ctx.drawImage(digitCanvas(i + 1), x + 5, y + 5, 8, 10);
-    // Completion check.
+    drawText(ctx, String(i + 1), x + 5, y + 5, { color: selected ? 15 : 7, scale: 2 });
     if (campaign.completed[i]) ctx.drawImage(checkSprite, x + slotW - 14, y + 4);
-    // The part this level holds, shown once collected.
     const part = campaign.partByLevel[i];
     if (part && campaign.run.parts[part - 1]) {
       ctx.fillStyle = PALETTE[PART_CHIP_COLORS[part - 1]];
       ctx.fillRect(x + 14, y + 22, 12, 12);
-      ctx.drawImage(digitCanvas(part), x + 18, y + 25);
+      drawText(ctx, String(part), x + 19, y + 26, { color: 15 });
     }
-    ctx.fillStyle = selected ? PALETTE[15] : PALETTE[7];
-    ctx.font = "5px monospace";
-    ctx.fillText(campaign.entries[i].name, x + slotW / 2, y + 49);
+    drawText(ctx, campaign.entries[i].name, x + slotW / 2, y + 45, {
+      color: selected ? 15 : 7,
+      align: "center",
+    });
   }
 
-  ctx.fillStyle = PALETTE[7];
-  ctx.font = "8px monospace";
-  ctx.fillText("ARROWS PICK · JUMP TO GO", 160, 168);
-  ctx.textAlign = "left";
-  // Score so far.
-  drawNumber(ctx, campaign.run.score, 148, 180, 6);
+  drawText(ctx, "ARROWS PICK / JUMP TO GO", 160, 156, { color: 7, align: "center" });
+  drawText(ctx, "SCORE", 138, 176, { color: 7 });
+  drawNumber(ctx, campaign.run.score, 162, 176, 6);
 }
 
-// Tiny helper: digits are baked in render.ts; reuse via drawNumber's cache
-// isn't exposed, so bake locally once.
-const digitCache = new Map<number, HTMLCanvasElement>();
-function digitCanvas(n: number): HTMLCanvasElement {
-  let c = digitCache.get(n);
-  if (!c) {
-    c = document.createElement("canvas");
-    c.width = 4;
-    c.height = 5;
-    const cc = c.getContext("2d")!;
-    drawNumber(cc, n, 0, 0);
-    digitCache.set(n, c);
-  }
-  return c;
-}
-
-// --- the launch cutscene: reassemble, sputter, blast off, card ---
+// --- the launch cutscene ---
 function drawWinCutscene(t: number): void {
-  // Murkk-7 ground line.
   ctx.fillStyle = PALETTE[8];
   ctx.fillRect(0, 176, LOGICAL_WIDTH, 24);
   ctx.fillStyle = PALETTE[7];
   ctx.fillRect(0, 176, LOGICAL_WIDTH, 2);
 
   const groundY = 176;
-  const cx = 144; // rocket left (32px wide at 2×)
+  const cx = 144;
   let y = groundY - 64;
   let shake = 0;
 
   if (t < 2.5) {
-    // Sputtering on the pad.
     if (t > 1) shake = Math.floor(t * 20) % 2 === 0 ? 1 : -1;
   } else if (t < 6.5) {
-    const rise = (t - 2.5) * (t - 2.5) * 22;
-    y -= rise;
+    y -= (t - 2.5) * (t - 2.5) * 22;
     shake = Math.floor(t * 30) % 2 === 0 ? 1 : 0;
   } else {
-    y = -100; // gone home
+    y = -100;
   }
 
   if (y > -80) {
     ctx.drawImage(rocketSprite, cx + shake, Math.round(y), 32, 64);
-    // Flame once she's firing.
     if (t > 1.6 && t < 6.5) {
       const fy = Math.round(y) + 50;
       ctx.fillStyle = PALETTE[Math.floor(t * 15) % 2 === 0 ? 14 : 12];
@@ -251,41 +319,36 @@ function drawWinCutscene(t: number): void {
     }
   }
 
-  ctx.textAlign = "center";
   if (t >= 6) {
-    ctx.fillStyle = PALETTE[15];
-    ctx.font = "16px monospace";
-    ctx.fillText("SEE YOU AFTER DINNER", 160, 90);
-    ctx.fillStyle = PALETTE[14];
-    ctx.font = "8px monospace";
-    ctx.fillText("POPPY SPROCKET WILL RETURN", 160, 108);
+    drawText(ctx, "SEE YOU AFTER DINNER", 160, 80, { color: 15, scale: 2, align: "center" });
+    drawText(ctx, "POPPY SPROCKET WILL RETURN", 160, 102, { color: 14, align: "center" });
     if (t >= WIN_CUTSCENE_LOCK) {
-      ctx.fillStyle = PALETTE[7];
-      ctx.fillText("PRESS JUMP", 160, 150);
+      drawText(ctx, "PRESS JUMP", 160, 144, { color: 7, align: "center" });
     }
   } else if (t < 2.5) {
-    ctx.fillStyle = PALETTE[11];
-    ctx.font = "8px monospace";
-    ctx.fillText("ALL FOUR PARTS RECOVERED!", 160, 60);
+    drawText(ctx, "ALL FOUR PARTS RECOVERED!", 160, 56, { color: 11, align: "center" });
   }
-  ctx.textAlign = "left";
 }
 
-// Placeholder game-over card (canvas text). Sprint 6 replaces the lettering
-// with pixel arrays.
 function drawGameOverCard(): void {
   ctx.fillStyle = PALETTE[0];
   ctx.fillRect(40, 70, 240, 60);
   ctx.strokeStyle = PALETTE[4];
   ctx.strokeRect(40.5, 70.5, 239, 59);
-  ctx.fillStyle = PALETTE[15];
-  ctx.font = "16px monospace";
-  ctx.textAlign = "center";
-  ctx.fillText("GAME OVER", 160, 95);
-  ctx.font = "8px monospace";
-  ctx.fillStyle = PALETTE[14];
-  ctx.fillText("PRESS JUMP TO TRY AGAIN", 160, 115);
-  ctx.textAlign = "left";
+  drawText(ctx, "GAME OVER", 160, 84, { color: 15, scale: 2, align: "center" });
+  drawText(ctx, "PRESS JUMP TO TRY AGAIN", 160, 108, { color: 14, align: "center" });
+}
+
+// EGA curtain wipe: staggered black bars sweep off after screen changes.
+function drawWipe(): void {
+  if (wipeT <= 0) return;
+  ctx.fillStyle = PALETTE[0];
+  const bars = 16;
+  const barW = LOGICAL_WIDTH / bars;
+  for (let i = 0; i < bars; i++) {
+    const local = Math.min(1, Math.max(0, wipeT * 1.6 - (i % 4) * 0.12));
+    ctx.fillRect(Math.round(i * barW), 0, Math.ceil(barW), Math.round(LOGICAL_HEIGHT * local));
+  }
 }
 
 function drawDebug(game: Game, camX: number, camY: number): void {
@@ -308,9 +371,7 @@ function drawDebug(game: Game, camX: number, camY: number): void {
   const p = game.player;
   ctx.strokeStyle = PALETTE[13];
   ctx.strokeRect(Math.round(p.x - camX) + 0.5, Math.round(p.y - camY) + 0.5, p.w, p.h);
-  ctx.fillStyle = PALETTE[15];
-  ctx.font = "8px monospace";
-  ctx.fillText(`mode ${p.mode}`, 4, 8);
+  drawText(ctx, `MODE ${p.mode}`, 4, 4, { color: 15 });
 }
 
 const loop = createLoop({ update, render });

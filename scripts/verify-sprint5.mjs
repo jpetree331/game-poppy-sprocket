@@ -34,9 +34,17 @@ const entries = [
   { name: "FIVE", text: mini(4) },
 ];
 
+/** Press through the title screen (added in Sprint 6). */
+function pressStart(c) {
+  assert.equal(c.screen, "title", "campaign boots at the title");
+  updateCampaign(c, snap({ jump: true, jumpPressed: true }), DT);
+  assert.equal(c.screen, "select");
+}
+
 // --- select navigation + part map ---
 {
   const c = createCampaign(entries);
+  pressStart(c);
   assert.deepEqual(c.partByLevel, [null, 1, 2, 3, 4]);
   updateCampaign(c, snap({ rightPressed: true, right: true }), DT);
   assert.equal(c.cursor, 1);
@@ -60,14 +68,12 @@ function playLevel(c) {
 // --- full chain: five levels, four parts, win state ---
 {
   const c = createCampaign(entries);
-  const t0 = 0;
-  let simSeconds = 0;
+  pressStart(c);
   for (let lv = 0; lv < 5; lv++) {
     // move cursor to lv
     while (c.cursor !== lv) updateCampaign(c, snap({ rightPressed: true, right: true }), DT);
     const before = c.run.score;
     const ev = playLevel(c);
-    simSeconds += 0; // playLevel ticks are 1/60 each; tracked below via ticks if needed
     assert.ok(c.completed[lv], `level ${lv} marked complete`);
     if (lv === 0) {
       assert.equal(c.screen, "select", "back to select after a partless level");
@@ -87,7 +93,7 @@ function playLevel(c) {
   for (let i = 0; i < 60 * 8; i++) updateCampaign(c, snap(), DT);
   const ev = updateCampaign(c, snap({ jump: true, jumpPressed: true }), DT);
   assert.ok(ev.runReset, "jump after the card resets the run");
-  assert.equal(c.screen, "select");
+  assert.equal(c.screen, "title", "win card returns to the title");
   assert.deepEqual(c.run.parts, [false, false, false, false]);
   assert.ok(c.completed.every((x) => !x), "slots cleared for the new run");
   console.log("  full chain: 5 levels → win cutscene → fresh run ✓");
@@ -96,6 +102,7 @@ function playLevel(c) {
 // --- score persists across levels within a run ---
 {
   const c = createCampaign(entries);
+  pressStart(c);
   playLevel(c); // level 1, no part
   while (c.cursor !== 1) updateCampaign(c, snap({ rightPressed: true, right: true }), DT);
   playLevel(c); // level 2, part 1 = 1000 pts
@@ -112,6 +119,7 @@ function playLevel(c) {
 ##########
 `.trim();
   const c = createCampaign([{ name: "OW", text: deadly }, ...entries.slice(1)]);
+  pressStart(c);
   updateCampaign(c, snap({ jump: true, jumpPressed: true }), DT); // enter level
   let overs = 0;
   for (let i = 0; i < 6000 && c.screen !== "gameover"; i++) {
@@ -122,9 +130,9 @@ function playLevel(c) {
   assert.equal(overs, 1);
   const ev = updateCampaign(c, snap({ jump: true, jumpPressed: true }), DT);
   assert.ok(ev.runReset);
-  assert.equal(c.screen, "select");
+  assert.equal(c.screen, "title", "game over returns to the title");
   assert.equal(c.run.lives, 3);
-  console.log("  in-level game over → fresh run at select ✓");
+  console.log("  in-level game over → fresh run at title ✓");
 }
 
 // --- shipping levels: parse, exits, exactly one of each part across 02–05 ---

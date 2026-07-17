@@ -21,6 +21,7 @@ import {
   TILE_SOLID,
   TILE_SPIKE,
   DIGITS,
+  FONT,
   KEYCARD,
   MINI_POPPY,
   PART_BIG_RED_BUTTON,
@@ -186,6 +187,75 @@ export function drawNumber(
     cx += 4;
   }
   return cx;
+}
+
+// --- pixel text ------------------------------------------------------------
+// 3×5 glyphs (FONT letters + DIGITS), baked per (char,color) on demand.
+// This is the only lettering in the game — no browser fonts.
+const glyphCache = new Map<string, HTMLCanvasElement>();
+
+function glyphFor(ch: string, color: number): HTMLCanvasElement | null {
+  const grid = /[0-9]/.test(ch) ? DIGITS[Number(ch)] : FONT[ch];
+  if (!grid) return null;
+  const key = `${ch}:${color}`;
+  let c = glyphCache.get(key);
+  if (!c) {
+    c = document.createElement("canvas");
+    c.width = 3;
+    c.height = 5;
+    const cc = c.getContext("2d")!;
+    cc.fillStyle = PALETTE[color as 0];
+    for (let y = 0; y < 5; y++) {
+      for (let x = 0; x < 3; x++) {
+        if (grid[y][x] !== -1) cc.fillRect(x, y, 1, 1);
+      }
+    }
+    glyphCache.set(key, c);
+  }
+  return c;
+}
+
+export interface TextOpts {
+  color?: number;
+  scale?: number;
+  align?: "left" | "center";
+}
+
+export function textWidth(text: string, scale = 1): number {
+  return text.length * 4 * scale - scale;
+}
+
+/** Draw uppercase pixel text. Returns the end x. */
+export function drawText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  opts: TextOpts = {},
+): number {
+  const { color = 15, scale = 1, align = "left" } = opts;
+  let cx = align === "center" ? Math.round(x - textWidth(text, scale) / 2) : x;
+  for (const ch of text.toUpperCase()) {
+    if (ch !== " ") {
+      const g = glyphFor(ch, color);
+      if (g) ctx.drawImage(g, cx, y, 3 * scale, 5 * scale);
+    }
+    cx += 4 * scale;
+  }
+  return cx;
+}
+
+/** Draw the particle field (world space). */
+export function drawParticles(
+  ctx: CanvasRenderingContext2D,
+  particles: ReadonlyArray<{ x: number; y: number; color: number; size: number }>,
+  camX: number,
+  camY: number,
+): void {
+  for (const p of particles) {
+    ctx.fillStyle = PALETTE[p.color as 0];
+    ctx.fillRect(Math.round(p.x - camX), Math.round(p.y - camY), p.size, p.size);
+  }
 }
 
 /** The bottom-16px HUD strip: score, lives, keycard, four part slots. */

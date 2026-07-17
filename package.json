@@ -12,7 +12,9 @@
     "verify:2": "node --experimental-strip-types scripts/verify-sprint2.mjs",
     "verify:3": "node --experimental-strip-types scripts/verify-sprint3.mjs",
     "verify:4": "node --experimental-strip-types scripts/verify-sprint4.mjs",
-    "verify:5": "node --experimental-strip-types scripts/verify-sprint5.mjs"
+    "verify:5": "node --experimental-strip-types scripts/verify-sprint5.mjs",
+    "verify:6": "node --experimental-strip-types scripts/verify-sprint6.mjs",
+    "verify:all": "npm run verify:0 && npm run verify:1 && npm run verify:2 && npm run verify:3 && npm run verify:4 && npm run verify:5 && npm run verify:6"
   },
   "devDependencies": {
     "typescript": "5.9.3",

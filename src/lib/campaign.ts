@@ -21,7 +21,7 @@ export interface LevelEntry {
   text: string;
 }
 
-export type Screen = "select" | "game" | "gameover" | "win";
+export type Screen = "title" | "select" | "game" | "gameover" | "win";
 
 /** Seconds of launch cutscene before the card accepts input. */
 export const WIN_CUTSCENE_LOCK = 7;
@@ -59,7 +59,7 @@ export function createCampaign(entries: LevelEntry[]): Campaign {
     partByLevel,
     completed: entries.map(() => false),
     run: newRun(),
-    screen: "select",
+    screen: "title",
     cursor: 0,
     current: 0,
     game: null,
@@ -67,11 +67,12 @@ export function createCampaign(entries: LevelEntry[]): Campaign {
   };
 }
 
+/** Game over and the win card both return to the title (per the brief). */
 function freshRun(c: Campaign): void {
   c.run = newRun();
   c.completed = c.entries.map(() => false);
   c.game = null;
-  c.screen = "select";
+  c.screen = "title";
   c.winTime = 0;
 }
 
@@ -85,6 +86,10 @@ export function updateCampaign(c: Campaign, input: InputSnapshot, dt: number): C
   };
 
   switch (c.screen) {
+    case "title": {
+      if (input.jumpPressed) c.screen = "select";
+      break;
+    }
     case "select": {
       if (input.leftPressed) c.cursor = (c.cursor + c.entries.length - 1) % c.entries.length;
       if (input.rightPressed) c.cursor = (c.cursor + 1) % c.entries.length;
