@@ -104,7 +104,9 @@ export function moveBody(body: Body, level: LevelData, dt: number): MoveResult {
       body.y += dy;
       const [c0, c1] = colSpan(body);
       if (dy > 0) {
-        const row = Math.floor((body.y + body.h - 1e-6) / TILE_SIZE);
+        // No epsilon here: feet exactly touching a tile top while moving
+        // down IS a landing (otherwise boundary-grazing falls miss a tick).
+        const row = Math.floor((body.y + body.h) / TILE_SIZE);
         const rowTop = row * TILE_SIZE;
         for (let c = c0; c <= c1; c++) {
           const t = tileAt(level, c, row);
@@ -128,24 +130,6 @@ export function moveBody(body: Body, level: LevelData, dt: number): MoveResult {
             result.hitCeiling = true;
             break;
           }
-        }
-      }
-    }
-  }
-
-  // Standing check: still grounded if velocity is non-negative and there is
-  // solid-or-platform support within a hair below our feet.
-  if (!body.onGround && body.vy >= 0) {
-    const probeRow = Math.floor((body.y + body.h + 0.5) / TILE_SIZE);
-    const feetOnRowBoundary =
-      Math.abs(body.y + body.h - probeRow * TILE_SIZE) < 0.51;
-    if (feetOnRowBoundary) {
-      const [c0, c1] = colSpan(body);
-      for (let c = c0; c <= c1; c++) {
-        const t = tileAt(level, c, probeRow);
-        if (t === TILE.solid || t === TILE.platform) {
-          body.onGround = true;
-          break;
         }
       }
     }

@@ -2,9 +2,11 @@
 import "./tokens.css";
 import { createLoop } from "./lib/loop.ts";
 import { PALETTE } from "./lib/palette.ts";
-import { parseLevel, TILE_SIZE } from "./lib/level.ts";
-import { applyGravity, moveBody, type Body } from "./lib/physics.ts";
-import { drawTiles, exitSprite } from "./render.ts";
+import { TILE_SIZE } from "./lib/level.ts";
+import { createInput } from "./lib/input.ts";
+import { createGame, updateGame } from "./lib/game.ts";
+import { attachKeyboard } from "./input-keyboard.ts";
+import { drawPlayer, drawTiles, exitSprite } from "./render.ts";
 import level01Text from "../levels/01-crash-site.txt?raw";
 
 export const LOGICAL_WIDTH = 320;
@@ -33,58 +35,30 @@ function fitCanvas(): void {
 window.addEventListener("resize", fitCanvas);
 fitCanvas();
 
-// --- Keyboard (minimal for the Sprint 1 walkthrough; the real input seam
-// arrives with GATE A in Sprint 2) ---
-const keys = new Set<string>();
-window.addEventListener("keydown", (e) => {
-  keys.add(e.code);
-  if (e.code === "F1") {
-    debugOverlay = !debugOverlay;
-    e.preventDefault();
-  }
-});
-window.addEventListener("keyup", (e) => keys.delete(e.code));
-
-// --- Sprint 1 scene: gravity-only dummy box in level 01 ---
-const level = parseLevel(level01Text);
+// --- sim wiring ---
+const game = createGame(level01Text);
+const input = createInput();
 let debugOverlay = false;
-
-const dummy: Body = {
-  x: level.playerSpawn.col * TILE_SIZE + 2,
-  y: level.playerSpawn.row * TILE_SIZE + 2,
-  w: 12,
-  h: 14,
-  vx: 0,
-  vy: 0,
-  onGround: false,
-};
-const WALK_SPEED = 80;
-const HOP_SPEED = 190; // temporary walkthrough hop — real jump is Sprint 2
+attachKeyboard(input, () => {
+  debugOverlay = !debugOverlay;
+});
 
 function update(dt: number): void {
-  dummy.vx = 0;
-  if (keys.has("ArrowLeft")) dummy.vx = -WALK_SPEED;
-  if (keys.has("ArrowRight")) dummy.vx = WALK_SPEED;
-  if (keys.has("ArrowUp") && dummy.onGround) dummy.vy = -HOP_SPEED;
-  applyGravity(dummy, dt);
-  const result = moveBody(dummy, level, dt);
-  if (result.onSpike) {
-    // Sprint 1: just reset to spawn; lives/death arrive in Sprint 2/3.
-    dummy.x = level.playerSpawn.col * TILE_SIZE + 2;
-    dummy.y = level.playerSpawn.row * TILE_SIZE + 2;
-    dummy.vx = 0;
-    dummy.vy = 0;
-  }
+  const snap = input.sample();
+  updateGame(game, snap, dt);
 }
 
+// --- camera ---
 function cameraX(): number {
-  const target = dummy.x + dummy.w / 2 - LOGICAL_WIDTH / 2;
-  return Math.max(0, Math.min(target, level.width * TILE_SIZE - LOGICAL_WIDTH));
+  const p = game.player;
+  const target = p.x + p.w / 2 - LOGICAL_WIDTH / 2;
+  return Math.max(0, Math.min(target, game.level.width * TILE_SIZE - LOGICAL_WIDTH));
 }
 function cameraY(): number {
-  const worldH = level.height * TILE_SIZE;
+  const worldH = game.level.height * TILE_SIZE;
   if (worldH <= LOGICAL_HEIGHT) return worldH - LOGICAL_HEIGHT; // bottom-align short maps
-  const target = dummy.y + dummy.h / 2 - LOGICAL_HEIGHT / 2;
+  const p = game.player;
+  const target = p.y + p.h / 2 - LOGICAL_HEIGHT / 2;
   return Math.max(0, Math.min(target, worldH - LOGICAL_HEIGHT));
 }
 
@@ -94,10 +68,9 @@ function render(_alpha: number): void {
   const camX = cameraX();
   const camY = cameraY();
 
-  drawTiles(ctx, level, camX, camY, LOGICAL_WIDTH, LOGICAL_HEIGHT);
+  drawTiles(ctx, game.level, camX, camY, LOGICAL_WIDTH, LOGICAL_HEIGHT);
 
-  // Entities (Sprint 1: just the exit door so the level reads)
-  for (const s of level.spawns) {
+  for (const s of game.level.spawns) {
     if (s.kind === "exit") {
       ctx.drawImage(
         exitSprite,
@@ -107,14 +80,7 @@ function render(_alpha: number): void {
     }
   }
 
-  // Dummy box (Poppy's stand-in until Sprint 2)
-  ctx.fillStyle = PALETTE[14];
-  ctx.fillRect(
-    Math.round(dummy.x - camX),
-    Math.round(dummy.y - camY),
-    dummy.w,
-    dummy.h,
-  );
+  drawPlayer(ctx, game.player, camX, camY);
 
   if (debugOverlay) drawDebug(camX, camY);
 }
@@ -136,13 +102,13 @@ function drawDebug(camX: number, camY: number): void {
     ctx.lineTo(LOGICAL_WIDTH, y + 0.5);
     ctx.stroke();
   }
+  const p = game.player;
   ctx.strokeStyle = PALETTE[13];
-  ctx.strokeRect(
-    Math.round(dummy.x - camX) + 0.5,
-    Math.round(dummy.y - camY) + 0.5,
-    dummy.w,
-    dummy.h,
-  );
+  ctx.strokeRect(Math.round(p.x - camX) + 0.5, Math.round(p.y - camY) + 0.5, p.w, p.h);
+  // Lives readout until the real HUD lands in Sprint 4.
+  ctx.fillStyle = PALETTE[15];
+  ctx.font = "8px monospace";
+  ctx.fillText(`lives ${game.lives} mode ${p.mode}`, 4, 8);
 }
 
 const loop = createLoop({ update, render });

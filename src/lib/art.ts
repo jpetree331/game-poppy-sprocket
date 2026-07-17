@@ -86,6 +86,106 @@ export const TILE_SPIKE = decodeSprite([
   "8888888888888888",
 ]);
 
+// --- Poppy Sprocket, age 8¾ ------------------------------------------------
+// Yellow hair, white face, light-blue junkyard overalls, dark boots. The
+// boing frame shows the red boot spring. Feet sit on the bottom sprite row
+// except the airborne poses. Right-facing; render bakes the mirror.
+
+export const POPPY_IDLE = decodeSprite([
+  "................",
+  ".....eeeeee.....",
+  "....eeeeeeee....",
+  "....eeeeeeee....",
+  ".....ffffff.....",
+  ".....f0ff0f.....",
+  ".....ffffff.....",
+  "......ffff......",
+  ".....999999.....",
+  "....f999999f....",
+  "....f999999f....",
+  ".....999999.....",
+  ".....99..99.....",
+  ".....99..99.....",
+  ".....88..88.....",
+  "....888..888....",
+]);
+
+export const POPPY_RUN1 = decodeSprite([
+  "................",
+  ".....eeeeee.....",
+  "....eeeeeeee....",
+  "....eeeeeeee....",
+  ".....ffffff.....",
+  ".....f0ff0f.....",
+  ".....ffffff.....",
+  "......ffff......",
+  ".....999999.....",
+  "....f999999f....",
+  "....f999999f....",
+  ".....999999.....",
+  "....99....99....",
+  "...99......99...",
+  "...88......88...",
+  "..888......888..",
+]);
+
+export const POPPY_RUN2 = decodeSprite([
+  "................",
+  ".....eeeeee.....",
+  "....eeeeeeee....",
+  "....eeeeeeee....",
+  ".....ffffff.....",
+  ".....f0ff0f.....",
+  ".....ffffff.....",
+  "......ffff......",
+  ".....999999.....",
+  "....f999999f....",
+  "....f999999f....",
+  ".....999999.....",
+  ".....99..99.....",
+  "......9999......",
+  "......8888......",
+  ".....888888.....",
+]);
+
+export const POPPY_JUMP = decodeSprite([
+  "................",
+  ".....eeeeee.....",
+  "....eeeeeeee....",
+  "....eeeeeeee....",
+  ".....ffffff.....",
+  ".....f0ff0f.....",
+  ".....ffffff.....",
+  "...f..ffff..f...",
+  "...f.999999.f...",
+  ".....999999.....",
+  ".....999999.....",
+  ".....99..99.....",
+  ".....9999.......",
+  ".....8888.......",
+  "....88..88......",
+  "................",
+]);
+
+export const POPPY_BOING = decodeSprite([
+  "................",
+  ".....eeeeee.....",
+  "....eeeeeeee....",
+  "....eeeeeeee....",
+  ".....ffffff.....",
+  ".....f0ff0f.....",
+  ".....ffffff.....",
+  "......ffff......",
+  ".....999999.....",
+  "....f999999f....",
+  ".....999999.....",
+  ".....99..99.....",
+  "......8888......",
+  "......c44c......",
+  ".......44.......",
+  "......c44c......",
+]);
+
 // Exit door: a hatch from Poppy's rocket — cyan frame, dark interior,
 // yellow wheel-handle.
 export const TILE_EXIT = decodeSprite([
