@@ -79,7 +79,7 @@ const ARENA = `
   }
   assert.ok(squished, "stomp must squish");
   assert.ok(!g.enemies[0]?.alive || g.enemies.length === 0, "globbin dead flag set");
-  assert.equal(g.score, 200, "squish scores 200");
+  assert.equal(g.run.score, 200, "squish scores 200");
   assert.ok(g.player.vy < 0, "stomp rebound");
   assert.ok(!g.player.dead, "Poppy survives a stomp");
   console.log("  Globbin squish: dead flag + 200 pts + rebound ✓");
@@ -113,8 +113,8 @@ const ARENA = `
   // Restart from game over.
   const ev = updateGame(g, snap({ jump: true, jumpPressed: true }), DT);
   assert.ok(ev.restarted, "jump restarts");
-  assert.equal(g.lives, 3);
-  assert.equal(g.score, 0);
+  assert.equal(g.run.lives, 3);
+  assert.equal(g.run.score, 0);
   assert.equal(g.phase, "playing");
   assert.equal(g.enemies.length, 1, "enemies respawned");
   console.log("  3 deaths → game over → jump → fresh run ✓");

@@ -6,9 +6,18 @@ import { TILE_SIZE } from "./lib/level.ts";
 import { createInput } from "./lib/input.ts";
 import { createGame, updateGame } from "./lib/game.ts";
 import { attachKeyboard } from "./input-keyboard.ts";
-import { drawBubbles, drawEnemies, drawPlayer, drawTiles, exitSprite } from "./render.ts";
+import {
+  drawBubbles,
+  drawEnemies,
+  drawHud,
+  drawItems,
+  drawPlayer,
+  drawTiles,
+  exitSprite,
+} from "./render.ts";
 import level01Text from "../levels/01-crash-site.txt?raw";
 import level02Text from "../levels/02-suds-canyon.txt?raw";
+import level03Text from "../levels/03-the-drippy-depths.txt?raw";
 
 export const LOGICAL_WIDTH = 320;
 export const LOGICAL_HEIGHT = 200;
@@ -39,7 +48,11 @@ fitCanvas();
 // --- sim wiring ---
 // Dev-only level jump: ?level=2 boots straight into a later map. The real
 // level chain arrives in Sprint 5.
-const LEVELS: Record<string, string> = { "1": level01Text, "2": level02Text };
+const LEVELS: Record<string, string> = {
+  "1": level01Text,
+  "2": level02Text,
+  "3": level03Text,
+};
 const requested = new URLSearchParams(location.search).get("level") ?? "1";
 const game = createGame(LEVELS[requested] ?? level01Text);
 const input = createInput();
@@ -85,9 +98,11 @@ function render(_alpha: number): void {
     }
   }
 
+  drawItems(ctx, game.items, camX, camY, game.player.animTime);
   drawEnemies(ctx, game.enemies, camX, camY);
   drawBubbles(ctx, game.bubbles, camX, camY);
   drawPlayer(ctx, game.player, camX, camY);
+  drawHud(ctx, game, LOGICAL_WIDTH, LOGICAL_HEIGHT);
 
   if (game.phase === "gameover") drawGameOver();
   if (debugOverlay) drawDebug(camX, camY);
@@ -130,10 +145,9 @@ function drawDebug(camX: number, camY: number): void {
   const p = game.player;
   ctx.strokeStyle = PALETTE[13];
   ctx.strokeRect(Math.round(p.x - camX) + 0.5, Math.round(p.y - camY) + 0.5, p.w, p.h);
-  // Lives readout until the real HUD lands in Sprint 4.
   ctx.fillStyle = PALETTE[15];
   ctx.font = "8px monospace";
-  ctx.fillText(`lives ${game.lives} mode ${p.mode}`, 4, 8);
+  ctx.fillText(`mode ${p.mode}`, 4, 8);
 }
 
 const loop = createLoop({ update, render });

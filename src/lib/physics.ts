@@ -35,7 +35,7 @@ export function applyGravity(body: Body, dt: number): void {
 }
 
 function isBlockingHorizontal(t: TileId): boolean {
-  return t === TILE.solid;
+  return t === TILE.solid || t === TILE.door;
 }
 
 function colSpan(body: Body): [number, number] {
@@ -112,6 +112,7 @@ export function moveBody(body: Body, level: LevelData, dt: number): MoveResult {
           const t = tileAt(level, c, row);
           const blocks =
             t === TILE.solid ||
+            t === TILE.door ||
             (t === TILE.platform && prevBottom <= rowTop + 1e-6);
           if (blocks) {
             body.y = rowTop - body.h;
@@ -124,7 +125,8 @@ export function moveBody(body: Body, level: LevelData, dt: number): MoveResult {
       } else {
         const row = Math.floor(body.y / TILE_SIZE);
         for (let c = c0; c <= c1; c++) {
-          if (tileAt(level, c, row) === TILE.solid) {
+          const t = tileAt(level, c, row);
+          if (t === TILE.solid || t === TILE.door) {
             body.y = (row + 1) * TILE_SIZE;
             body.vy = 0;
             result.hitCeiling = true;

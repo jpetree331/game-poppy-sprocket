@@ -12,6 +12,7 @@ export const TILE = {
   solid: 1,
   platform: 2, // jump-through from below, solid from above
   spike: 3,
+  door: 4, // locked; blocks like solid until a keycard consumes it
 } as const;
 export type TileId = (typeof TILE)[keyof typeof TILE];
 
@@ -22,7 +23,6 @@ export type EntityKind =
   | "janitorBot"
   | "sodaCap"
   | "keycard"
-  | "lockedDoor"
   | "shipPart";
 
 export interface Spawn {
@@ -50,7 +50,6 @@ const ENTITY_CHARS: Record<string, EntityKind> = {
   j: "janitorBot",
   "*": "sodaCap",
   K: "keycard",
-  D: "lockedDoor",
 };
 
 export function parseLevel(text: string): LevelData {
@@ -82,6 +81,9 @@ export function parseLevel(text: string): LevelData {
           break;
         case "^":
           tiles[i] = TILE.spike;
+          break;
+        case "D":
+          tiles[i] = TILE.door;
           break;
         case "P":
           if (playerSpawn) {
@@ -124,4 +126,21 @@ export function tileAt(level: LevelData, col: number, row: number): TileId {
   if (row < 0) return TILE.empty;
   if (col < 0 || col >= level.width || row >= level.height) return TILE.solid;
   return level.tiles[row * level.width + col];
+}
+
+/**
+ * Unlock the door containing (col,row): clears every door tile connected to
+ * it (4-neighbor flood), so a 2-tall door opens with one keycard.
+ */
+export function unlockDoorAt(level: LevelData, col: number, row: number): void {
+  if (tileAt(level, col, row) !== TILE.door) return;
+  const stack: Array<[number, number]> = [[col, row]];
+  while (stack.length > 0) {
+    const [c, r] = stack.pop()!;
+    if (c < 0 || c >= level.width || r < 0 || r >= level.height) continue;
+    const i = r * level.width + c;
+    if (level.tiles[i] !== TILE.door) continue;
+    level.tiles[i] = TILE.empty;
+    stack.push([c + 1, r], [c - 1, r], [c, r + 1], [c, r - 1]);
+  }
 }

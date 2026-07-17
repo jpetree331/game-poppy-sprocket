@@ -1,14 +1,13 @@
 // src/lib/game.ts
 // Framework-free: no DOM, no Canvas, no Vite imports. Runs in plain Node.
 //
-// Owns one level's worth of sim: the parsed map, Poppy, the critters, score
-// and lives. Death is never a hard fail: respawn at the level spawn (level
-// entities reset too), lose one of 3 lives; at 0 the run enters "gameover"
-// and jump returns to a fresh run (the title screen proper lands in
-// Sprint 6 — until then game-over → fresh run IS the placeholder title).
+// Owns one level's worth of sim (map, Poppy, critters, items) plus the
+// RunState that outlives any single level: score, lives, and which ship
+// parts have been recovered. Sprint 5 threads the same RunState through the
+// level chain; here it already persists across createGame calls.
 
 import type { InputSnapshot } from "./input.ts";
-import { parseLevel, type LevelData } from "./level.ts";
+import { parseLevel, unlockDoorAt, TILE, TILE_SIZE, type LevelData } from "./level.ts";
 import {
   contactOutcome,
   spawnEnemies,
@@ -19,6 +18,14 @@ import {
   type Bubble,
   type Enemy,
 } from "./enemies.ts";
+import {
+  collectItems,
+  spawnItems,
+  CAP_SCORE,
+  PART_SCORE,
+  type Item,
+  type PartId,
+} from "./items.ts";
 import { aabbOverlap } from "./physics.ts";
 import {
   createPlayer,
@@ -31,15 +38,28 @@ import {
 
 export const STARTING_LIVES = 3;
 
+/** Progress that survives level loads (and gets reset by a fresh run). */
+export interface RunState {
+  score: number;
+  lives: number;
+  parts: [boolean, boolean, boolean, boolean];
+}
+
+export function newRun(): RunState {
+  return { score: 0, lives: STARTING_LIVES, parts: [false, false, false, false] };
+}
+
 export type GamePhase = "playing" | "gameover";
 
 export interface Game {
+  levelText: string;
   level: LevelData;
   player: Player;
   enemies: Enemy[];
   bubbles: Bubble[];
-  lives: number;
-  score: number;
+  items: Item[];
+  hasKeycard: boolean;
+  run: RunState;
   phase: GamePhase;
 }
 
@@ -47,8 +67,11 @@ export interface GameEvents extends PlayerEvents {
   respawned: boolean;
   squished: boolean;
   gameOver: boolean;
-  /** A fresh run started from the game-over screen. */
   restarted: boolean;
+  capsCollected: number;
+  gotKeycard: boolean;
+  partsCollected: PartId[];
+  doorOpened: boolean;
 }
 
 const NO_EVENTS: Omit<GameEvents, keyof PlayerEvents> = {
@@ -56,45 +79,59 @@ const NO_EVENTS: Omit<GameEvents, keyof PlayerEvents> = {
   squished: false,
   gameOver: false,
   restarted: false,
+  capsCollected: 0,
+  gotKeycard: false,
+  partsCollected: [],
+  doorOpened: false,
 };
 
-export function createGame(levelText: string): Game {
+export function createGame(levelText: string, run: RunState = newRun()): Game {
   const level = parseLevel(levelText);
   return {
+    levelText,
     level,
     player: createPlayer(level.playerSpawn),
     enemies: spawnEnemies(level),
     bubbles: [],
-    lives: STARTING_LIVES,
-    score: 0,
+    items: spawnItems(level),
+    hasKeycard: false,
+    run,
     phase: "playing",
   };
 }
 
-/** Reset the level's inhabitants (used on respawn — "respawn at level start"). */
+/** Respawn after death: critters reset, collected items STAY collected. */
 function resetLevelEntities(game: Game): void {
   game.enemies = spawnEnemies(game.level);
   game.bubbles = [];
   respawnPlayer(game.player, game.level.playerSpawn);
 }
 
+/** Full fresh run from game over: re-parse so opened doors re-lock. */
+function restartRun(game: Game): void {
+  game.level = parseLevel(game.levelText);
+  game.run = newRun();
+  game.items = spawnItems(game.level);
+  game.hasKeycard = false;
+  game.phase = "playing";
+  resetLevelEntities(game);
+}
+
 export function updateGame(game: Game, input: InputSnapshot, dt: number): GameEvents {
   if (game.phase === "gameover") {
     const events: GameEvents = {
-      jumped: false, boinged: null, landed: false, died: false, ...NO_EVENTS,
+      jumped: false, boinged: null, landed: false, died: false,
+      ...NO_EVENTS, partsCollected: [],
     };
     if (input.jumpPressed) {
-      game.lives = STARTING_LIVES;
-      game.score = 0;
-      game.phase = "playing";
-      resetLevelEntities(game);
+      restartRun(game);
       events.restarted = true;
     }
     return events;
   }
 
   const playerEvents = updatePlayer(game.player, game.level, input, dt);
-  const events: GameEvents = { ...playerEvents, ...NO_EVENTS };
+  const events: GameEvents = { ...playerEvents, ...NO_EVENTS, partsCollected: [] };
   const p = game.player;
 
   const { lobbed } = updateEnemies(game.enemies, game.level, p, dt);
@@ -107,7 +144,7 @@ export function updateGame(game: Game, input: InputSnapshot, dt: number): GameEv
       const outcome = contactOutcome(p, e);
       if (outcome === "squish") {
         squish(e);
-        game.score += SQUISH_SCORE;
+        game.run.score += SQUISH_SCORE;
         p.vy = -150; // stomp rebound
         p.onGround = false;
         events.squished = true;
@@ -129,10 +166,47 @@ export function updateGame(game: Game, input: InputSnapshot, dt: number): GameEv
     }
   }
 
+  // Pickups.
+  const got = collectItems(p, game.items);
+  if (got.caps > 0) {
+    game.run.score += got.caps * CAP_SCORE;
+    events.capsCollected = got.caps;
+  }
+  if (got.keycard) {
+    game.hasKeycard = true;
+    events.gotKeycard = true;
+  }
+  for (const part of got.parts) {
+    game.run.parts[part - 1] = true;
+    game.run.score += PART_SCORE;
+    events.partsCollected.push(part);
+  }
+
+  // Door unlock: keycard in hand + touching a door tile (1px reach).
+  if (game.hasKeycard && !p.dead) {
+    const c0 = Math.floor((p.x - 1) / TILE_SIZE);
+    const c1 = Math.floor((p.x + p.w + 1) / TILE_SIZE);
+    const r0 = Math.floor(p.y / TILE_SIZE);
+    const r1 = Math.floor((p.y + p.h - 1) / TILE_SIZE);
+    outer: for (let r = r0; r <= r1; r++) {
+      for (let c = c0; c <= c1; c++) {
+        if (
+          r >= 0 && r < game.level.height && c >= 0 && c < game.level.width &&
+          game.level.tiles[r * game.level.width + c] === TILE.door
+        ) {
+          unlockDoorAt(game.level, c, r);
+          game.hasKeycard = false; // consumed — opens exactly once
+          events.doorOpened = true;
+          break outer;
+        }
+      }
+    }
+  }
+
   // Death → respawn-or-game-over.
   if (p.dead && p.deadTime >= DEATH_PAUSE) {
-    game.lives -= 1;
-    if (game.lives <= 0) {
+    game.run.lives -= 1;
+    if (game.run.lives <= 0) {
       game.phase = "gameover";
       events.gameOver = true;
     } else {

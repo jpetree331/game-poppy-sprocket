@@ -243,14 +243,14 @@ const SPIKE = `
     died ||= ev.died;
   }
   assert.ok(died, "walking into spikes must kill");
-  assert.equal(g.lives, 3, "lives decrement happens at respawn, not death");
+  assert.equal(g.run.lives, 3, "lives decrement happens at respawn, not death");
   let respawned = false;
   for (let i = 0; i < 60 && !respawned; i++) {
     const ev = tick(g);
     respawned ||= ev.respawned;
   }
   assert.ok(respawned, "must respawn after the death pause");
-  assert.equal(g.lives, 2, "one life lost");
+  assert.equal(g.run.lives, 2, "one life lost");
   assert.ok(Math.abs(g.player.x - (1 * TILE_SIZE + 2)) < 3, "respawn at P");
   void ev0;
   console.log("  spike death → 1 life lost → respawn at P ✓");

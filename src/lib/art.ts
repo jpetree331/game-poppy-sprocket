@@ -318,6 +318,202 @@ export const BUBBLE = decodeSprite([
   "..bbbb..",
 ]);
 
+// --- Items + locked door ----------------------------------------------------
+
+// Locked door: riveted metal slab with a red key slot. Blocks like solid
+// until a keycard consumes it.
+export const TILE_DOOR = decodeSprite([
+  "8888888888888888",
+  "8777777777777778",
+  "8788888888888878",
+  "8787777777777878",
+  "8787777777777878",
+  "8787777447777878",
+  "8787774444777878",
+  "8787774444777878",
+  "8787777447777878",
+  "8787777777777878",
+  "8787777777777878",
+  "8787777777777878",
+  "8787777777777878",
+  "8788888888888878",
+  "8777777777777778",
+  "8888888888888888",
+]);
+
+// Soda cap (8×8): 100 points of fizzy treasure.
+export const SODA_CAP = decodeSprite([
+  "..8888..",
+  ".8eeee8.",
+  "8eeeeee8",
+  "8ee66ee8",
+  "8ee66ee8",
+  "8eeeeee8",
+  ".8eeee8.",
+  "..8888..",
+]);
+
+// Keycard (8×8 world sprite + HUD icon): cyan chip, white contact.
+export const KEYCARD = decodeSprite([
+  "........",
+  "bbbbbbb.",
+  "b33333b.",
+  "b3ff33b.",
+  "b3ff33b.",
+  "b33333b.",
+  "bbbbbbb.",
+  "........",
+]);
+
+// --- The four ship parts (16×16, each with its own silhouette) --------------
+
+// 1: Sputter Coil — copper cylinder, yellow windings.
+export const PART_SPUTTER_COIL = decodeSprite([
+  "................",
+  "................",
+  "....77....77....",
+  "....7777777.....",
+  "...866666668....",
+  "...6e6e6e6e6....",
+  "...66666666e....",
+  "...6e6e6e6e6....",
+  "...66666666e....",
+  "...6e6e6e6e6....",
+  "...866666668....",
+  "....7777777.....",
+  "....77....77....",
+  "................",
+  "................",
+  "................",
+]);
+
+// 2: Fizz Tank — cyan pressure bottle, white cap, bubbles inside.
+export const PART_FIZZ_TANK = decodeSprite([
+  "................",
+  "......ffff......",
+  "......7777......",
+  "....33333333....",
+  "...3333333333...",
+  "...33b3333b33...",
+  "...3333b33333...",
+  "...33333333b3...",
+  "...3b33333333...",
+  "...333333b333...",
+  "...3333333333...",
+  "...3333333333...",
+  "....33333333....",
+  "......7777......",
+  "................",
+  "................",
+]);
+
+// 3: Left Fin — swept red stabilizer fin.
+export const PART_LEFT_FIN = decodeSprite([
+  "................",
+  "............cc..",
+  "...........ccc..",
+  "..........cccc..",
+  ".........ccccc..",
+  "........cc4ccc..",
+  ".......cc44ccc..",
+  "......cc444ccc..",
+  ".....cc4444ccc..",
+  "....cc44444ccc..",
+  "...cc444444ccc..",
+  "..cccccccccccc..",
+  "..cccccccccccc..",
+  "....88....88....",
+  "................",
+  "................",
+]);
+
+// 4: Big Red Button — exactly what it says, on a gray housing.
+export const PART_BIG_RED_BUTTON = decodeSprite([
+  "................",
+  "................",
+  "................",
+  "......cccc......",
+  "....cccccccc....",
+  "...cccc44cccc...",
+  "...ccc4444ccc...",
+  "...cc444444cc...",
+  "...4444444444...",
+  "..777777777777..",
+  "..788888888887..",
+  "..788888888887..",
+  "..777777777777..",
+  "................",
+  "................",
+  "................",
+]);
+
+// Two-frame sparkle overlay drawn on top of uncollected ship parts.
+export const SPARKLE_A = decodeSprite([
+  "f...............",
+  "................",
+  "..............f.",
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+  ".f..............",
+  "................",
+  "................",
+  "................",
+  "..............f.",
+  "................",
+]);
+
+export const SPARKLE_B = decodeSprite([
+  "................",
+  "........f.......",
+  "................",
+  "................",
+  "..f.............",
+  "................",
+  "................",
+  ".............f..",
+  "................",
+  "................",
+  "................",
+  "....f...........",
+  "................",
+  "................",
+  "................",
+  "................",
+]);
+
+// --- HUD bits ----------------------------------------------------------------
+
+// 3×5 digits for score/lives readouts.
+export const DIGITS = [
+  ["fff", "f.f", "f.f", "f.f", "fff"], // 0
+  [".f.", "ff.", ".f.", ".f.", "fff"], // 1
+  ["fff", "..f", "fff", "f..", "fff"], // 2
+  ["fff", "..f", "fff", "..f", "fff"], // 3
+  ["f.f", "f.f", "fff", "..f", "..f"], // 4
+  ["fff", "f..", "fff", "..f", "fff"], // 5
+  ["fff", "f..", "fff", "f.f", "fff"], // 6
+  ["fff", "..f", "..f", "..f", "..f"], // 7
+  ["fff", "f.f", "fff", "f.f", "fff"], // 8
+  ["fff", "f.f", "fff", "..f", "fff"], // 9
+].map(decodeSprite);
+
+// Mini Poppy head for the lives readout (8×8).
+export const MINI_POPPY = decodeSprite([
+  ".eeeee..",
+  "eeeeeee.",
+  "ef0ff0e.",
+  "efffffe.",
+  ".fffff..",
+  ".99999..",
+  "9999999.",
+  ".9...9..",
+]);
+
 // Exit door: a hatch from Poppy's rocket — cyan frame, dark interior,
 // yellow wheel-handle.
 export const TILE_EXIT = decodeSprite([
